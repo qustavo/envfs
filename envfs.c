@@ -29,8 +29,8 @@ static void parseVar(const char *s, char **key, char **val)
 		if (s[i] == '=') break;
 	}
 
-	*key = malloc(i);
-	*val = malloc(size - i);
+	*key = malloc(i + 1);
+	*val = malloc(size - i + 1);
 
 	strncpy(*key, s, i);
 	strcpy(*val, s + i + 1);
