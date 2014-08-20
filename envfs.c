@@ -10,18 +10,13 @@
 
 extern char **environ;
 
-typedef struct {
-	char *key;
-	char *val;
-} *var_t;
-
 struct {
-	var_t vars[4096];
+	char *keys[4096];
 } env;
 
 // Take a environment variable like: PWD=/home/gchain
 // split and copy into key and val
-static void parseVar(const char *s, char **key, char **val)
+static void parseVar(const char *s, char **key)
 {
 	int i;
 	int size = strlen(s);
@@ -30,22 +25,8 @@ static void parseVar(const char *s, char **key, char **val)
 	}
 
 	*key = malloc(i + 1);
-	*val = malloc(size - i + 1);
 
 	strncpy(*key, s, i);
-	strcpy(*val, s + i + 1);
-}
-
-static char *getValue(const char *key)
-{
-	int i = 0;
-	var_t var;
-	while( (var = env.vars[i++]) ) {
-		if (!strcmp(var->key, key)) {
-			return var->val;
-		}
-	}
-	return NULL;
 }
 
 static int envfs_getattr(const char *path, struct stat *stbuf) {
@@ -55,7 +36,7 @@ static int envfs_getattr(const char *path, struct stat *stbuf) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
 	} else {
-		char *val = getValue(path + 1);
+		char *val = getenv(path + 1);
 		if (val == NULL) {
 			res = -ENOENT;
 		} else {
@@ -69,7 +50,7 @@ static int envfs_getattr(const char *path, struct stat *stbuf) {
 }
 
 static int envfs_open(const char *path, struct fuse_file_info *fi) {
-	if (!getValue(path + 1))
+	if (!getenv(path + 1))
 		return -ENOENT;
 	if ((fi->flags & 3) != O_RDONLY)
 		return -EACCES;
@@ -79,7 +60,7 @@ static int envfs_open(const char *path, struct fuse_file_info *fi) {
 static int envfs_read(const char *path, char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi) {
 	size_t len;
-	char *val = getValue(path + 1);
+	char *val = getenv(path + 1);
 	if (!val)
 		return -ENOENT;
 
@@ -96,6 +77,7 @@ static int envfs_read(const char *path, char *buf, size_t size, off_t offset,
 
 static int envfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		off_t offset, struct fuse_file_info *fi) {
+
 	if (strcmp(path, "/") != 0)
 		return -ENOENT;
 
@@ -103,9 +85,9 @@ static int envfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 	int i = 0;
-	var_t var;
-	while( (var = env.vars[i++]) ) {
-		filler(buf, var->key, NULL, 0);
+	char *key;
+	while( (key = env.keys[i++]) ) {
+		filler(buf, key, NULL, 0);
 	}
 
 	return 0;
@@ -123,10 +105,10 @@ main(int argc, char *argv[]) {
 	// fill env struct
 	int i;
 	char *s = *environ;
+	char *key = NULL;
 	for (; s; i++) {
-		var_t var = malloc(sizeof(var_t*));
-		parseVar(s, &var->key, &var->val);
-		env.vars[i] = var;
+		parseVar(s, &key);
+		env.keys[i] = key;
 		s = *(environ+i);
 	}
 
