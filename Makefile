@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-D_FILE_OFFSET_BITS=64 -Wall
+CFLAGS=-D_FILE_OFFSET_BITS=64 -Wall -g
 LFLAGS=-lfuse
 BIN=envfs
 
